@@ -1,7 +1,4 @@
-
-import { GoogleGenAI, Modality, Type } from "@google/genai";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const WORKER_URL = "https://lingoguessr-gemini-proxy.umarkhan-10-2009.workers.dev/";
 
 let audioCtx: AudioContext | null = null;
 
@@ -12,83 +9,52 @@ function getAudioContext() {
   return audioCtx;
 }
 
-export async function generateGameContent(language: string, country: string) {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Generate a short, interesting sentence in English and translate it into ${language} as spoken in ${country}. Return only JSON.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          english: { type: Type.STRING },
-          native: { type: Type.STRING }
-        },
-        required: ["english", "native"]
-      }
-    }
+async function post(action: string, payload: any) {
+  const r = await fetch(WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...payload }),
   });
-  
-  return JSON.parse(response.text || '{}');
+  return r.json();
+}
+
+export async function generateGameContent(language: string, country: string) {
+  const { text } = await post("generateGameContent", { language, country });
+  return JSON.parse(text || "{}");
 }
 
 export async function fetchTTSData(text: string, voiceName: string): Promise<string | null> {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
-          },
-        },
-      },
-    });
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
-  } catch (error) {
-    console.error("TTS Fetch Error:", error);
+    const { audio } = await post("tts", { text, voiceName });
+    return audio || null;
+  } catch (e) {
+    console.error("TTS Fetch Error:", e);
     return null;
   }
 }
 
 export async function getClue(question: string, language: string, country: string): Promise<string> {
-  const validator = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `The user is guessing the language: ${language} from ${country}. They asked: "${question}". Is this question too obvious? Answer with "OBVIOUS" or "OK".`,
-  });
-
-  if (validator.text?.includes("OBVIOUS")) return "ASK_ANOTHER";
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `The user is guessing the language: ${language} from ${country}. Answer without giving the answer. Question: "${question}"`,
-  });
-
-  return response.text || "I'm not sure.";
+  const { text } = await post("getClue", { question, language, country });
+  return text || "I'm not sure.";
 }
 
 export async function generateCulturalHint(language: string, country: string): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Provide a vague cultural hint for ${language} / ${country}. No names. Short.`,
-  });
-  return response.text || "A place of rich heritage.";
+  const { text } = await post("generateCulturalHint", { language, country });
+  return text || "A place of rich heritage.";
 }
 
 export async function playTTSFromData(base64Data: string): Promise<AudioBufferSourceNode | null> {
   try {
     const ctx = getAudioContext();
-    if (ctx.state === 'suspended') await ctx.resume();
+    if (ctx.state === "suspended") await ctx.resume();
 
     const audioData = decode(base64Data);
     const audioBuffer = await decodeAudioData(audioData, ctx, 24000, 1);
-    
+
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(ctx.destination);
-    
+
     return source;
   } catch (error) {
     console.error("TTS Play Error:", error);
