@@ -1,0 +1,6 @@
+
+{
+  "name": "LingoGuessr",
+  "description": "A world-class language guessing game where you identify languages based on audio and visual clues. Challenge yourself with Daily, Standard, and Random play modes across different regions of the globe.",
+  "requestFramePermissions": ["microphone"]
+}
