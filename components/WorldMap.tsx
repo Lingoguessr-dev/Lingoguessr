@@ -105,4 +105,157 @@ const WorldMap: React.FC<WorldMapProps> = ({ onSelectRegion, onSelectCountry, mo
       {
         id: 'Asia',
         color: '#fbb040',
-        // Cu
+        // Curvy "Asia" blob (big mass to the right)
+        d: `
+          M182,28
+          C210,12 258,10 286,24
+          C306,34 306,62 300,80
+          C294,98 294,124 280,138
+          C266,152 242,150 226,144
+          C210,138 196,128 188,112
+          C180,96 172,86 174,66
+          C176,46 168,40 182,28
+          Z
+        `,
+        viewBox: '165 0 150 170',
+        countries: [
+          { id: 'China', name: 'China', d: 'M210,45 L265,50 L260,95 L210,95 Z' },
+          { id: 'India', name: 'India', d: 'M200,100 L230,105 L220,135 L195,130 Z' },
+          { id: 'Russia', name: 'Russia', d: 'M185,15 L290,20 L285,45 L185,40 Z' },
+          { id: 'Japan', name: 'Japan', d: 'M280,50 L290,50 L292,85 L282,85 Z' },
+          { id: 'Indonesia', name: 'Indonesia', d: 'M220,125 L285,130 L285,145 L220,140 Z' },
+        ],
+      },
+      {
+        id: 'Oceania',
+        color: '#2e3192',
+        // Curvy "Oceania" blob (Australia-ish)
+        d: `
+          M222,152
+          C236,140 270,140 288,154
+          C300,164 298,186 284,192
+          C270,198 242,198 228,190
+          C214,182 210,164 222,152
+          Z
+        `,
+        viewBox: '205 135 110 80',
+        countries: [
+          { id: 'Australia', name: 'Australia', d: 'M225,150 L280,155 L275,185 L225,180 Z' },
+          { id: 'New Zealand', name: 'New Zealand', d: 'M282,185 L292,185 L292,200 L282,200 Z' },
+        ],
+      },
+    ] as const;
+  }, []);
+
+  const currentRegion = regionData.find(r => r.id === activeRegion);
+  const isWorld = !activeRegion || activeRegion === 'World';
+
+  const handleClick = (itemId: string) => {
+    if (mode === 'REGION') {
+      onSelectRegion?.(itemId as Region);
+    } else {
+      onSelectCountry?.(itemId);
+    }
+  };
+
+  const itemsToRender: any[] =
+    mode === 'REGION' || isWorld ? (regionData as any[]) : (currentRegion?.countries as any[]) || [];
+
+  const svgViewBox =
+    mode === 'COUNTRY' && !isWorld
+      ? (currentRegion?.viewBox ?? '0 0 300 200')
+      : '0 0 300 200';
+
+  return (
+    <div className="relative w-full max-w-5xl mx-auto flex flex-col bg-white dark:bg-[#020617] rounded-xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in duration-700">
+      {/* Header */}
+      <div className="bg-[#0ea5e9] py-3 px-6 flex items-center justify-center text-white font-black text-lg relative">
+        <div className="flex items-center gap-2">
+          <span className="material-icons-round">public</span>
+          {mode === 'REGION' ? 'Select a Region to Start' : 'Click Map to Guess Country'}
+        </div>
+      </div>
+
+      {/* Map */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden">
+        {/* Ocean background that matches your glassy vibe */}
+        <div className="absolute inset-0 bg-gradient-to-b from-sky-100 to-slate-100 dark:from-slate-900 dark:to-slate-950" />
+        <div className="absolute inset-0 opacity-40 dark:opacity-25">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(14,165,233,0.35),transparent_40%),radial-gradient(circle_at_80%_60%,rgba(99,102,241,0.25),transparent_45%),radial-gradient(circle_at_55%_85%,rgba(56,189,248,0.2),transparent_50%)]" />
+        </div>
+
+        <svg viewBox={svgViewBox} className="relative w-full h-full transition-all duration-1000 ease-in-out">
+          {/* subtle grid dots */}
+          <g opacity="0.15" className="dark:opacity-[0.10]">
+            {Array.from({ length: 18 }).map((_, row) =>
+              Array.from({ length: 28 }).map((__, col) => {
+                const x = 10 + col * 10;
+                const y = 10 + row * 10;
+                return <circle key={`${row}-${col}`} cx={x} cy={y} r="0.6" fill="currentColor" className="text-slate-500" />;
+              })
+            )}
+          </g>
+
+          {/* Land */}
+          {itemsToRender.map((item: any) => {
+            const isHover = hoveredItem === item.id;
+            const isRegionMode = mode === 'REGION';
+
+            // REGION mode: use strong color palette
+            // COUNTRY mode: use neutral land and highlight on hover
+            const fill = isRegionMode ? item.color : isHover ? '#38bdf8' : '#cbd5e1';
+
+            return (
+              <g
+                key={item.id}
+                className="cursor-pointer select-none"
+                onMouseEnter={() => setHoveredItem(item.id)}
+                onMouseLeave={() => setHoveredItem(null)}
+                onClick={() => handleClick(item.id)}
+              >
+                {/* soft shadow “sticker” effect */}
+                <path
+                  d={item.d}
+                  fill="black"
+                  opacity={0.18}
+                  transform="translate(1.8 2.4)"
+                />
+
+                {/* thick cartoon outline */}
+                <path
+                  d={item.d}
+                  fill={fill}
+                  className={`transition-all duration-200 ${isHover ? 'opacity-95' : 'opacity-100'}`}
+                  stroke={isRegionMode ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.5)'}
+                  strokeWidth={1.4}
+                  strokeLinejoin="round"
+                />
+
+                {/* inner highlight line for “cute” depth */}
+                {isRegionMode && (
+                  <path
+                    d={item.d}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.22)"
+                    strokeWidth={0.9}
+                    strokeLinejoin="round"
+                    transform="translate(-0.8 -0.8)"
+                  />
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Floating Label */}
+        {hoveredItem && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 px-6 py-2 bg-black/90 text-white rounded-full text-sm font-black tracking-widest backdrop-blur-md pointer-events-none animate-in slide-in-from-bottom-2">
+            {hoveredItem}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default WorldMap;
